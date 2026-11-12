@@ -170,7 +170,7 @@ img { max-width: 100%; }
   <header class="top">
     <div>
       <h1>Annual Leave Planner</h1>
-      <p class="sub">One shared plan for the whole team. Add your leave and everyone sees who is off, in which month and for how long. Days are counted Monday to Friday, with Saturday and Sunday as the weekend.</p>
+      <p class="sub">One shared plan for the whole team. Add your leave and everyone sees who is off, in which month and for how long. Every calendar day is counted, weekends included.</p>
     </div>
     <div class="year-nav" role="group" aria-label="Plan year">
       <button class="icon-btn" id="prev" aria-label="Previous year">&#8249;</button>
@@ -223,7 +223,7 @@ img { max-width: 100%; }
   function parse(s) { var p = s.split('-').map(Number); return Date.UTC(p[0], p[1] - 1, p[2]); }
   function fmt(t) { var d = new Date(t); return d.getUTCDate() + ' ' + MONTHS[d.getUTCMonth()]; }
   function fmtY(t) { return fmt(t) + ' ' + new Date(t).getUTCFullYear(); }
-  function workdays(a, b) { var n = 0; for (var t = a; t <= b; t += MS) { var w = new Date(t).getUTCDay(); if (w !== 0 && w !== 6) n++; } return n; }
+  function countDays(a, b) { var n = 0; for (var t = a; t <= b; t += MS) { n++; } return n; }
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function plural(n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); }
   function people(n) { return n === 1 ? '1 person' : n + ' people'; }
@@ -324,9 +324,9 @@ img { max-width: 100%; }
       var name = nameOf(key), wd = 0;
       var bars = mine.map(function (e) {
         var a = Math.max(e.a, y0), b = Math.min(e.b, y1);
-        var days = workdays(a, b); wd += days;
+        var days = countDays(a, b); wd += days;
         var left = (a - y0) / MS / total * 100, w = ((b - a) / MS + 1) / total * 100;
-        var tip = name + ': ' + fmtY(e.a) + (e.b !== e.a ? ' to ' + fmtY(e.b) : '') + ', ' + plural(workdays(e.a, e.b), 'working day');
+        var tip = name + ': ' + fmtY(e.a) + (e.b !== e.a ? ' to ' + fmtY(e.b) : '') + ', ' + plural(countDays(e.a, e.b), 'day');
         return '<div class="bar" style="left:' + left.toFixed(3) + '%;width:' + w.toFixed(3) + '%;background:' + colorOf(key) + '" title="' + esc(tip) + '">' + (w > 2.4 ? days + 'd' : '') + '</div>';
       }).join('');
       totalWd += wd;
@@ -337,7 +337,7 @@ img { max-width: 100%; }
       peaks.map(function (p) { return '<div class="h' + Math.min(p, 3) + '">' + (p || '–') + '</div>'; }).join('') + '</div></div>';
     html += '</div>';
     el.tl.innerHTML = html;
-    el.stats.textContent = keys.length ? people(keys.length) + ' · ' + plural(ents.length, 'leave period') + ' · ' + plural(totalWd, 'working day') + ' off' : '';
+    el.stats.textContent = keys.length ? people(keys.length) + ' · ' + plural(ents.length, 'leave period') + ' · ' + plural(totalWd, 'day') + ' off' : '';
 
     var cards = '';
     for (m = 0; m < 12; m++) {
@@ -349,10 +349,10 @@ img { max-width: 100%; }
       if (!inMonth.length) cards += '<p class="none">No one is off.</p>';
       else {
         cards += '<ul>' + inMonth.map(function (e) {
-          var inM = workdays(Math.max(e.a, ms), Math.min(e.b, me));
+          var inM = countDays(Math.max(e.a, ms), Math.min(e.b, me));
           var range = e.a === e.b ? fmt(e.a) : fmt(e.a) + ' – ' + fmt(e.b);
-          var full = workdays(e.a, e.b);
-          var detail = inM === full ? plural(full, 'working day') : plural(inM, 'working day') + ' in ' + MONTHS[m] + ' (' + full + ' in total)';
+          var full = countDays(e.a, e.b);
+          var detail = inM === full ? plural(full, 'day') : plural(inM, 'day') + ' in ' + MONTHS[m] + ' (' + full + ' in total)';
           var rm = canWrite ?
             '<button class="rm" data-id="' + esc(e.id) + '" aria-label="Remove ' + esc(e.name) + ', ' + range + '" title="Remove">×</button>' : '';
           return '<li><span class="dot" style="background:' + colorOf(e.key) + '"></span><div><b>' + esc(e.name) + '</b><span class="small muted">' + range + ' · ' + detail + '</span></div>' + rm + '</li>';
