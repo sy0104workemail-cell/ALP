@@ -1,12 +1,13 @@
+[README.md](https://github.com/user-attachments/files/34747117/README.md)
 # Annual Leave Planner
 
-A shared leave plan for your team. Everyone adds their own leave and sees, by month, who is off and for how many working days. It runs on its own, with no dependencies and no Claude account needed.
+A shared leave plan for your team. Everyone adds their own leave and sees, by month, who is off and for how many days. It runs on its own, with no dependencies and no Claude account needed.
 
 - `server.js` is the web server and the shared storage (Node 18 or newer, built-in modules only).
 - `index.html` is the page people open.
 - Leave is saved in `data/leave.json`. Back up that one file and you have backed up everything.
 - Open pages update live when anyone adds or removes leave.
-- Working days are Monday to Friday. Saturday and Sunday are the weekend.
+- Every calendar day in a leave period is counted, weekends included.
 
 ## Run it on your computer
 
