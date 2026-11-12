@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Annual Leave Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* Layout: one year-at-a-glance timeline (people as rows, months as columns, bars sized by real dates), then a card per month listing who is off. */
+:root {
+  --bg: #F2F5F6;
+  --surface: #FFFFFF;
+  --ink: #13242B;
+  --muted: #5B6E76;
+  --line: #D9E1E4;
+  --shade: #EBF0F2;
+  --accent: #0F766E;
+  --accent-ink: #FFFFFF;
+  --danger: #B42318;
+  --on-bar: #FFFFFF;
+  --p0: #0F766E; --p1: #B45309; --p2: #7C3AED; --p3: #BE123C;
+  --p4: #1D4ED8; --p5: #4D7C0F; --p6: #A21CAF; --p7: #0E7490;
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0C161A; --surface: #121F25; --ink: #E6EEF1; --muted: #8FA3AB; --line: #25363E; --shade: #172730;
+    --accent: #2DD4BF; --accent-ink: #072320; --danger: #F97066; --on-bar: #0B1417;
+    --p0: #2DD4BF; --p1: #FBBF24; --p2: #A78BFA; --p3: #FB7185;
+    --p4: #60A5FA; --p5: #A3E635; --p6: #E879F9; --p7: #22D3EE;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0C161A; --surface: #121F25; --ink: #E6EEF1; --muted: #8FA3AB; --line: #25363E; --shade: #172730;
+  --accent: #2DD4BF; --accent-ink: #072320; --danger: #F97066; --on-bar: #0B1417;
+  --p0: #2DD4BF; --p1: #FBBF24; --p2: #A78BFA; --p3: #FB7185;
+  --p4: #60A5FA; --p5: #A3E635; --p6: #E879F9; --p7: #22D3EE;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  padding-block: 24px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+h1, h2 { font-family: var(--font-display); margin: 0; text-wrap: balance; }
+h1 { font-size: 28px; line-height: 1.15; letter-spacing: -0.01em; }
+h2 { font-size: 16px; }
+.muted { color: var(--muted); }
+.small { font-size: 12.5px; }
+
+header.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; }
+.top .sub { margin: 6px 0 0; color: var(--muted); max-width: 62ch; }
+.year-nav { display: flex; align-items: center; gap: 4px; }
+.year-nav output { font-family: var(--font-display); font-weight: 600; font-size: 20px; min-width: 4.2ch; text-align: center; font-variant-numeric: tabular-nums; }
+button, input { font: inherit; color: inherit; }
+.icon-btn {
+  width: 36px; height: 36px; display: grid; place-items: center; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+}
+.icon-btn:hover { border-color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+
+/* Add form */
+form.add { display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr)) auto; gap: 12px; align-items: end; padding: 16px; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field label { font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: 0.02em; }
+.field input {
+  height: 38px; padding: 0 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; width: 100%;
+}
+.field input:focus-visible { outline-offset: 0; border-color: var(--accent); }
+.primary {
+  height: 38px; padding: 0 18px; cursor: pointer; font-weight: 600;
+  background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 8px;
+}
+.primary:hover { filter: brightness(1.08); }
+#msg { grid-column: 1 / -1; margin: 0; min-height: 0; color: var(--danger); font-size: 13px; }
+#msg:empty { display: none; }
+
+.notice {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px;
+  padding: 10px 16px; border: 1px dashed var(--line); border-radius: 10px; background: var(--surface);
+}
+.notice { justify-content: flex-start; }
+.live { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+.live.on { background: var(--accent); }
+.live.off { background: var(--danger); }
+.link-btn { background: none; border: 0; padding: 0; cursor: pointer; color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+
+/* Timeline */
+.tl-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 16px; padding: 16px 16px 0; }
+.tl-scroll { overflow-x: auto; padding: 12px 0 4px; }
+.tl { min-width: 820px; }
+.row { display: grid; grid-template-columns: 136px minmax(0, 1fr); align-items: stretch; }
+.cell-name {
+  position: sticky; left: 0; z-index: 3; background: var(--surface);
+  padding: 8px 12px 8px 16px; display: flex; flex-direction: column; justify-content: center; min-width: 0;
+  border-top: 1px solid var(--line);
+}
+.cell-name strong { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 8px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.cell-name .small { padding-left: 18px; font-variant-numeric: tabular-nums; }
+.months { display: grid; grid-template-columns: var(--cols); padding-right: 16px; }
+.months div { text-align: center; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding: 4px 0 6px; }
+.peak { padding-right: 16px; display: grid; grid-template-columns: var(--cols); }
+.peak div { text-align: center; font-variant-numeric: tabular-nums; font-size: 12.5px; font-weight: 600; padding: 4px 0; border-top: 1px solid var(--line); }
+.peak .h1 { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.peak .h2 { background: color-mix(in srgb, var(--accent) 32%, transparent); }
+.peak .h3 { background: color-mix(in srgb, var(--accent) 52%, transparent); }
+.peak .h0 { color: var(--muted); font-weight: 400; }
+.track { position: relative; height: 100%; min-height: 44px; margin-right: 16px; border-top: 1px solid var(--line); background: var(--bands); }
+.bar {
+  position: absolute; top: 9px; height: 26px; min-width: 5px; border-radius: 6px;
+  display: flex; align-items: center; padding: 0 6px; overflow: hidden; white-space: nowrap;
+  font-size: 12px; font-weight: 600; color: var(--on-bar); font-variant-numeric: tabular-nums;
+}
+.today { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--danger); z-index: 1; opacity: 0.8; }
+.empty { padding: 28px 16px; text-align: center; color: var(--muted); border-top: 1px solid var(--line); }
+
+/* Month cards */
+.months-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.mcard { padding: 14px 16px 12px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.mcard header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.mcard ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.mcard li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 4px 10px; align-items: start; }
+.mcard li .dot { margin-top: 5px; }
+.mcard li b { font-weight: 600; }
+.mcard li .small { display: block; font-variant-numeric: tabular-nums; }
+.rm { background: none; border: 0; cursor: pointer; color: var(--muted); width: 26px; height: 26px; border-radius: 6px; font-size: 16px; line-height: 1; }
+.rm:hover { color: var(--danger); background: var(--shade); }
+.none { color: var(--muted); margin: 0; }
+
+@media (max-width: 720px) {
+  form.add { grid-template-columns: 1fr 1fr; }
+  .field.name { grid-column: 1 / -1; }
+  .primary { grid-column: 1 / -1; }
+  h1 { font-size: 24px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .icon-btn, .primary, .rm { transition: background-color .15s, border-color .15s, filter .15s; }
+}
+
+html { color-scheme: light; }
+:root { color-scheme: light; }
+body { margin: 0; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.unlock { display: flex; gap: 8px; margin-left: auto; align-items: center; }
+.unlock[hidden] { display: none; }
+.unlock input { height: 32px; padding: 0 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; min-width: 0; width: 150px; }
+.unlock .primary { height: 32px; padding: 0 12px; }
+[hidden] { display: none !important; }
+img { max-width: 100%; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Annual Leave Planner</h1>
+      <p class="sub">One shared plan for the whole team. Add your leave and everyone sees who is off, in which month and for how long. Days are counted Monday to Friday, with Saturday and Sunday as the weekend.</p>
+    </div>
+    <div class="year-nav" role="group" aria-label="Plan year">
+      <button class="icon-btn" id="prev" aria-label="Previous year">&#8249;</button>
+      <output id="year" aria-live="polite"></output>
+      <button class="icon-btn" id="next" aria-label="Next year">&#8250;</button>
+    </div>
+  </header>
+
+  <form class="panel add" id="form" novalidate>
+    <div class="field name"><label for="who">Name</label><input id="who" list="names" autocomplete="off" placeholder="e.g. Amira Hassan"><datalist id="names"></datalist></div>
+    <div class="field"><label for="from">First day off</label><input id="from" type="date"></div>
+    <div class="field"><label for="to">Last day off</label><input id="to" type="date"></div>
+    <button class="primary" type="submit">Add leave</button>
+    <p id="msg" role="alert"></p>
+  </form>
+
+  <div class="notice" id="status" role="status"><span class="live" id="liveDot" aria-hidden="true"></span><span id="statusText">Connecting to the shared plan…</span><form id="unlock" class="unlock" hidden><label class="sr" for="code">Team code</label><input id="code" type="password" autocomplete="off" placeholder="Team code"><button class="primary" type="submit">Unlock editing</button></form></div>
+
+  <section class="panel" aria-labelledby="tlTitle">
+    <div class="tl-head">
+      <h2 id="tlTitle">Year at a glance</h2>
+      <span class="muted small" id="stats"></span>
+    </div>
+    <div class="tl-scroll"><div class="tl" id="tl"></div></div>
+  </section>
+
+  <section aria-labelledby="mTitle">
+    <h2 id="mTitle" style="margin-bottom:12px">Who is off each month</h2>
+    <div class="months-grid" id="months"></div>
+  </section>
+</div>
+
+<script>
+(function () {
+  var MS = 86400000;
+  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  var CODE_KEY = 'leave-planner-team-code';
+
+  var now = new Date();
+  var year = now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear();
+  var rows = [];
+  var ready = false;
+  var needsCode = false;
+  var canWrite = false;
+  var code = '';
+  try { code = localStorage.getItem(CODE_KEY) || ''; } catch (e) {}
+
+  function parse(s) { var p = s.split('-').map(Number); return Date.UTC(p[0], p[1] - 1, p[2]); }
+  function fmt(t) { var d = new Date(t); return d.getUTCDate() + ' ' + MONTHS[d.getUTCMonth()]; }
+  function fmtY(t) { return fmt(t) + ' ' + new Date(t).getUTCFullYear(); }
+  function workdays(a, b) { var n = 0; for (var t = a; t <= b; t += MS) { var w = new Date(t).getUTCDay(); if (w !== 0 && w !== 6) n++; } return n; }
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function plural(n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); }
+  function people(n) { return n === 1 ? '1 person' : n + ' people'; }
+  function keyOf(name) { return name.trim().toLowerCase(); }
+
+  var el = {
+    year: document.getElementById('year'), tl: document.getElementById('tl'), stats: document.getElementById('stats'),
+    months: document.getElementById('months'), names: document.getElementById('names'), form: document.getElementById('form'),
+    msg: document.getElementById('msg'), who: document.getElementById('who'), from: document.getElementById('from'), to: document.getElementById('to'),
+    dot: document.getElementById('liveDot'), status: document.getElementById('statusText'),
+    unlock: document.getElementById('unlock'), code: document.getElementById('code')
+  };
+
+  function setStatus(text, kind) {
+    el.status.textContent = text;
+    el.dot.className = 'live' + (kind ? ' ' + kind : '');
+  }
+
+  function api(method, path, body) {
+    var headers = { 'Content-Type': 'application/json' };
+    if (code) headers['x-access-code'] = code;
+    return fetch(path, { method: method, headers: headers, body: body ? JSON.stringify(body) : undefined }).then(function (r) {
+      return r.text().then(function (txt) {
+        var data = null; try { data = txt ? JSON.parse(txt) : null; } catch (e) {}
+        if (!r.ok) { var err = new Error((data && data.error) || 'Request failed'); err.status = r.status; throw err; }
+        return data;
+      });
+    });
+  }
+
+  function clean() {
+    var out = [];
+    rows.forEach(function (d) {
+      if (!d || typeof d.name !== 'string' || !d.name.trim() || d.name.length > 60) return;
+      if (typeof d.start !== 'string' || typeof d.end !== 'string' || !DATE_RE.test(d.start) || !DATE_RE.test(d.end)) return;
+      var a = parse(d.start), b = parse(d.end);
+      if (isNaN(a) || isNaN(b) || b < a) return;
+      out.push({ id: String(d.id), name: d.name.trim(), key: keyOf(d.name), a: a, b: b, created: typeof d.created === 'number' ? d.created : 0 });
+    });
+    return out;
+  }
+
+  function render() {
+    var all = clean();
+    var first = {};
+    all.forEach(function (e) {
+      if (!first[e.key] || e.created < first[e.key].created) first[e.key] = { created: e.created, name: e.name };
+    });
+    var order = Object.keys(first).sort(function (p, q) { return first[p].created - first[q].created || p.localeCompare(q); });
+    var colorIdx = {}; order.forEach(function (k, i) { colorIdx[k] = i % 8; });
+    function colorOf(key) { return 'var(--p' + (colorIdx[key] || 0) + ')'; }
+    function nameOf(key) { return first[key].name; }
+
+    var y = year;
+    var y0 = Date.UTC(y, 0, 1), y1 = Date.UTC(y, 11, 31), total = (y1 - y0) / MS + 1;
+    var mOff = [], mLen = [], m;
+    for (m = 0; m < 12; m++) {
+      var s = Date.UTC(y, m, 1), nx = Date.UTC(y, m + 1, 1);
+      mOff.push((s - y0) / MS); mLen.push((nx - s) / MS);
+    }
+    el.year.textContent = y;
+
+    var ents = all.filter(function (e) { return e.b >= y0 && e.a <= y1; }).sort(function (p, q) { return p.a - q.a; });
+
+    var dayPeople = []; for (var i = 0; i < total; i++) dayPeople.push({});
+    ents.forEach(function (e) {
+      for (var t = Math.max(e.a, y0); t <= Math.min(e.b, y1); t += MS) dayPeople[(t - y0) / MS][e.key] = 1;
+    });
+    var peaks = mLen.map(function (len, mi) {
+      var p = 0; for (var d = 0; d < len; d++) p = Math.max(p, Object.keys(dayPeople[mOff[mi] + d]).length); return p;
+    });
+
+    var keys = []; ents.forEach(function (e) { if (keys.indexOf(e.key) < 0) keys.push(e.key); });
+    keys.sort(function (a, b) { return nameOf(a).localeCompare(nameOf(b)); });
+
+    var cols = mLen.map(function (l) { return l + 'fr'; }).join(' ');
+    var stops = [];
+    for (m = 0; m < 12; m++) {
+      var l = mOff[m] / total * 100, r = (mOff[m] + mLen[m]) / total * 100;
+      stops.push((m % 2 === 1 ? 'var(--shade) ' : 'transparent ') + l.toFixed(3) + '% ' + r.toFixed(3) + '%');
+    }
+    var bands = 'linear-gradient(90deg,' + stops.join(',') + ')';
+
+    var todayTs = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    var todayHtml = (todayTs >= y0 && todayTs <= y1)
+      ? '<div class="today" title="Today" style="left:' + ((todayTs - y0) / MS / total * 100).toFixed(3) + '%"></div>' : '';
+
+    var totalWd = 0;
+    var html = '<div style="--cols:' + cols + ';--bands:' + bands + '">';
+    html += '<div class="row"><div class="cell-name" style="border-top:0"></div><div class="months">' +
+      MONTHS.map(function (n) { return '<div>' + n + '</div>'; }).join('') + '</div></div>';
+
+    if (!keys.length) {
+      html += '<div class="empty">' + (ready ? 'No leave planned for ' + y + ' yet. Add the first period above.' : 'Loading the shared plan…') + '</div>';
+    }
+    keys.forEach(function (key) {
+      var mine = ents.filter(function (e) { return e.key === key; });
+      var name = nameOf(key), wd = 0;
+      var bars = mine.map(function (e) {
+        var a = Math.max(e.a, y0), b = Math.min(e.b, y1);
+        var days = workdays(a, b); wd += days;
+        var left = (a - y0) / MS / total * 100, w = ((b - a) / MS + 1) / total * 100;
+        var tip = name + ': ' + fmtY(e.a) + (e.b !== e.a ? ' to ' + fmtY(e.b) : '') + ', ' + plural(workdays(e.a, e.b), 'working day');
+        return '<div class="bar" style="left:' + left.toFixed(3) + '%;width:' + w.toFixed(3) + '%;background:' + colorOf(key) + '" title="' + esc(tip) + '">' + (w > 2.4 ? days + 'd' : '') + '</div>';
+      }).join('');
+      totalWd += wd;
+      html += '<div class="row"><div class="cell-name"><strong title="' + esc(name) + '"><span class="dot" style="background:' + colorOf(key) + '"></span>' + esc(name) + '</strong><span class="small muted">' + plural(wd, 'day') + ' off</span></div>' +
+        '<div class="track">' + todayHtml + bars + '</div></div>';
+    });
+    html += '<div class="row"><div class="cell-name"><span class="small muted" style="font-weight:500">Most off at once</span></div><div class="peak">' +
+      peaks.map(function (p) { return '<div class="h' + Math.min(p, 3) + '">' + (p || '–') + '</div>'; }).join('') + '</div></div>';
+    html += '</div>';
+    el.tl.innerHTML = html;
+    el.stats.textContent = keys.length ? people(keys.length) + ' · ' + plural(ents.length, 'leave period') + ' · ' + plural(totalWd, 'working day') + ' off' : '';
+
+    var cards = '';
+    for (m = 0; m < 12; m++) {
+      var ms = Date.UTC(y, m, 1), me = Date.UTC(y, m + 1, 0);
+      var inMonth = ents.filter(function (e) { return e.b >= ms && e.a <= me; });
+      var who = {}; inMonth.forEach(function (e) { who[e.key] = 1; });
+      var count = Object.keys(who).length;
+      cards += '<article class="panel mcard"><header><h2>' + FULL[m] + '</h2><span class="small muted">' + (count ? people(count) + ' off' : '') + '</span></header>';
+      if (!inMonth.length) cards += '<p class="none">No one is off.</p>';
+      else {
+        cards += '<ul>' + inMonth.map(function (e) {
+          var inM = workdays(Math.max(e.a, ms), Math.min(e.b, me));
+          var range = e.a === e.b ? fmt(e.a) : fmt(e.a) + ' – ' + fmt(e.b);
+          var full = workdays(e.a, e.b);
+          var detail = inM === full ? plural(full, 'working day') : plural(inM, 'working day') + ' in ' + MONTHS[m] + ' (' + full + ' in total)';
+          var rm = canWrite ?
+            '<button class="rm" data-id="' + esc(e.id) + '" aria-label="Remove ' + esc(e.name) + ', ' + range + '" title="Remove">×</button>' : '';
+          return '<li><span class="dot" style="background:' + colorOf(e.key) + '"></span><div><b>' + esc(e.name) + '</b><span class="small muted">' + range + ' · ' + detail + '</span></div>' + rm + '</li>';
+        }).join('') + '</ul>';
+      }
+      cards += '</article>';
+    }
+    el.months.innerHTML = cards;
+
+    el.names.innerHTML = order.map(function (k) { return '<option value="' + esc(nameOf(k)) + '">'; }).join('');
+    el.form.hidden = !canWrite;
+    el.unlock.hidden = !(needsCode && !canWrite);
+  }
+
+  function reason(e) {
+    if (e && e.status === 401) { canWrite = false; render(); return 'The team code was not accepted. Enter it again to edit.'; }
+    if (e && e.status === 429) return 'Too many changes at once. Wait a minute and try again.';
+    if (e && e.status === 400 && e.message) return e.message;
+    return 'Could not save that. Check your connection and try again.';
+  }
+
+  function liveStatus() {
+    if (canWrite) setStatus('Live. Changes from anyone appear here straight away.', 'on');
+    else if (needsCode) setStatus('View only. Enter the team code to add or remove leave.', 'on');
+    else setStatus('Live. Changes from anyone appear here straight away.', 'on');
+  }
+
+  function load() {
+    return api('GET', '/api/leave').then(function (d) {
+      rows = d.entries || []; ready = true; render();
+    });
+  }
+
+  el.from.addEventListener('change', function () { if (!el.to.value || el.to.value < el.from.value) el.to.value = el.from.value; });
+
+  el.form.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var name = el.who.value.trim().replace(/\s+/g, ' ');
+    if (!name) { el.msg.textContent = 'Enter the person’s name.'; el.who.focus(); return; }
+    if (name.length > 60) { el.msg.textContent = 'Use a name of 60 characters or fewer.'; el.who.focus(); return; }
+    if (!el.from.value || !el.to.value) { el.msg.textContent = 'Choose the first and last day off.'; (el.from.value ? el.to : el.from).focus(); return; }
+    if (el.to.value < el.from.value) { el.msg.textContent = 'The last day off must be on or after the first day off.'; el.to.focus(); return; }
+    el.msg.textContent = '';
+    var btn = el.form.querySelector('.primary'); btn.disabled = true;
+    var existing = null;
+    clean().forEach(function (e) { if (e.key === keyOf(name) && !existing) existing = e.name; });
+    var start = el.from.value, end = el.to.value;
+    api('POST', '/api/leave', { name: existing || name, start: start, end: end }).then(function () {
+      year = Number(start.slice(0, 4));
+      el.who.value = ''; el.from.value = ''; el.to.value = '';
+      btn.disabled = false; el.who.focus();
+      return load();
+    }).then(null, function (e) { el.msg.textContent = reason(e); btn.disabled = false; });
+  });
+
+  el.months.addEventListener('click', function (ev) {
+    var b = ev.target.closest('.rm'); if (!b) return;
+    b.disabled = true;
+    api('DELETE', '/api/leave/' + encodeURIComponent(b.getAttribute('data-id'))).then(load).then(null, function (e) {
+      el.msg.textContent = reason(e); b.disabled = false;
+    });
+  });
+
+  el.unlock.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var attempt = el.code.value.trim();
+    if (!attempt) return;
+    code = attempt;
+    api('POST', '/api/verify').then(function () {
+      canWrite = true;
+      try { localStorage.setItem(CODE_KEY, code); } catch (e) {}
+      el.code.value = ''; el.msg.textContent = ''; liveStatus(); render();
+    }, function () {
+      code = ''; el.msg.textContent = 'That team code was not accepted.';
+    });
+  });
+
+  document.getElementById('prev').addEventListener('click', function () { year--; render(); });
+  document.getElementById('next').addEventListener('click', function () { year++; render(); });
+
+  render();
+
+  api('GET', '/api/config').then(function (cfg) {
+    needsCode = !!cfg.editRequiresCode;
+    if (!needsCode) { canWrite = true; return; }
+    if (!code) return;
+    return api('POST', '/api/verify').then(function () { canWrite = true; }, function () {
+      code = ''; try { localStorage.removeItem(CODE_KEY); } catch (e) {}
+    });
+  }).then(load).then(function () {
+    liveStatus(); render();
+    if (window.EventSource) {
+      var es = new EventSource('/api/stream');
+      es.onmessage = function () { load().then(null, function () {}); };
+      es.onopen = function () { liveStatus(); };
+      es.onerror = function () { setStatus('Connection lost. Retrying…', 'off'); };
+    }
+    setInterval(function () { load().then(null, function () {}); }, 60000);
+  }, function () {
+    setStatus('Could not reach the server. Reload the page to try again.', 'off');
+  });
+})();
+</script>
+</body>
+</html>

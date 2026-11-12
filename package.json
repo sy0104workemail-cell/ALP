@@ -1,0 +1,13 @@
+{
+  "name": "annual-leave-planner",
+  "version": "1.0.0",
+  "description": "A shared annual leave planner for a team. No dependencies.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}
